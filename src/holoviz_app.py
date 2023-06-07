@@ -83,11 +83,11 @@ altair_pane = pn.pane.Streamz(altair_stream, height=350, always_watch=True)
 
 pn.state.add_periodic_callback(emit, period=100)
 
-art = pn.Column(
-    record_button,
-    text,
-    "".join(recorded_list),
-    slider,
-    altair_pane,
-    sizing_mode="stretch_width",
-).servable(area="sidebar")
+# art = pn.Column(
+#     record_button,
+#     text,
+#     "".join(recorded_list),
+#     slider,
+#     altair_pane,
+#     sizing_mode="stretch_width",
+# ).servable(area="sidebar")
