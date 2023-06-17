@@ -11,7 +11,8 @@ class FT_Mockup:
     header = ["Fx", "Fy", "Fz", "Mx", "My", "Mz"]
 
     def __init__(self, replay_file: str = None):
-        self.run_flag = False
+        self.run_flag = True
+
         if replay_file is None:
             self.create_random_replay_file()
         else:
@@ -20,7 +21,9 @@ class FT_Mockup:
         # TODO make this a rosparam
         rospy.init_node("FT_Sensor", anonymous=True)
         # TODO: Make this a rosparam
-        self.publisher = rospy.Publisher("wrench", WrenchStamped, queue_size=10)
+        self.publisher = rospy.Publisher("wrench_test", WrenchStamped, queue_size=10)
+        while True:
+            self.publish_data()
 
     def load_replay_file(self, replay_file: str):
         """load a file to be replayed from csv
@@ -63,7 +66,8 @@ class FT_Mockup:
 
     def create_new_wrench_msg(self):
         w_msg = WrenchStamped()
-        data = self.iterator()
+        data = next(self.iterator)[1]
+        # print(data)
 
         w_msg.header.stamp = rospy.Time.now()
 
@@ -79,8 +83,9 @@ class FT_Mockup:
     def publish_data(self):
         if not self.run_flag:
             return
-        self.publisher.publish(self.creat_new_wrench_msg)
-        rospy.sleep(1 / 1000)
+        # print("publishing")
+        self.publisher.publish(self.create_new_wrench_msg())
+        rospy.sleep(1 / 10000)
 
 
 if __name__ == "__main__":
