@@ -1,0 +1,20 @@
+[package]
+name = "rust_subscriber"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+ndarray = "0.15.3"
+numpy = "0.19"
+rosrust = "0.9.5"
+# rosrust_msg = "0.1.7"
+
+[dependencies.pyo3]
+version = "0.19"
+features = ["extension-module"]
