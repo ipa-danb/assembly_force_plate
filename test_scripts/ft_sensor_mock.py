@@ -10,7 +10,9 @@ import itertools
 class FT_Mockup:
     header = ["Fx", "Fy", "Fz", "Mx", "My", "Mz"]
 
-    def __init__(self, replay_file: str = None):
+    def __init__(
+        self, replay_file: str = None, topics: list = ["wrench_test1", "wrench_test2"]
+    ):
         self.run_flag = True
 
         if replay_file is None:
@@ -21,7 +23,12 @@ class FT_Mockup:
         # TODO make this a rosparam
         rospy.init_node("FT_Sensor", anonymous=True)
         # TODO: Make this a rosparam
-        self.publisher = rospy.Publisher("wrench_test", WrenchStamped, queue_size=10)
+
+        # self.publisher = rospy.Publisher("wrench_test", WrenchStamped, queue_size=10)
+        self.publishers = [
+            rospy.Publisher(n, WrenchStamped, queue_size=10) for n in topics
+        ]
+
         while True:
             self.publish_data()
 
@@ -83,18 +90,19 @@ class FT_Mockup:
     def publish_data(self):
         if not self.run_flag:
             return
-        # print("publishing")
-        self.publisher.publish(self.create_new_wrench_msg())
-        rospy.sleep(1 / 10000)
+        for pubs in self.publishers:
+            pubs.publish(self.create_new_wrench_msg())
+        rospy.sleep(1 / 2000)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Mock up data replay for FT Sensor")
     parser.add_argument("--replay_file", type=str, default=None, help="file to replay")
+    parser.add_argument("--topics", nargs="*", default=["wrench_test1"])
     args = parser.parse_args()
     print(args)
     replay_file = args.replay_file
 
-    FT_Mockup(replay_file=args.replay_file)
+    FT_Mockup(replay_file=args.replay_file, topics=args.topics)
 
     rospy.spin()
