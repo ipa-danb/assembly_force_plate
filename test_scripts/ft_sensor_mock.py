@@ -7,23 +7,50 @@ import argparse
 import itertools
 
 
+def rep_list_until(ll: list, l: int):
+    """repeats list ll until it reaches the length l
+
+    Args:
+        ll (list): list to repeat
+        l (int): length
+
+    Returns:
+        list: list of length l with repeated elements from ll
+    """
+    return list(itertools.islice(itertools.cycle(ll), l))
+
+
 class FT_Mockup:
-    header = ["Fx", "Fy", "Fz", "Mx", "My", "Mz"]
+    header = [f"{f}{dim}" for dim in "xyz" for f in "FM"]
 
     def __init__(
-        self, replay_file: str = None, topics: list = ["wrench_test1", "wrench_test2"]
+        self,
+        replay_file: str = None,
+        topics: list = ["wrench_test1", "wrench_test2"],
+        freq: int = 1000,
+        f_r: list = [10.0, 5.0, 1.0],
+        f_m: list = [1.0, 1.0, 0.5],
     ):
         self.run_flag = True
+        self.freq = freq
+        self.iterators = []
+
+        f_m_l = rep_list_until(f_m, len(topics) * 3)
+        f_r_l = rep_list_until(f_r, len(topics) * 3)
 
         if replay_file is None:
-            self.create_random_replay_file()
+            for i, element in enumerate(topics):
+                nn = np.zeros((2, len(self.header)))
+                nn[0, 0:3] = np.array(f_m_l[i * 3 : (i + 1) * 3])
+                nn[1, 0:3] = np.array(f_r_l[i * 3 : (i + 1) * 3])
+                df = pd.DataFrame(nn, columns=self.header, index=["m", "r"])
+                self.create_random_replay_file(df)
         else:
             self.load_replay_file(replay_file)
 
         # TODO make this a rosparam
         rospy.init_node("FT_Sensor", anonymous=True)
         # TODO: Make this a rosparam
-
         # self.publisher = rospy.Publisher("wrench_test", WrenchStamped, queue_size=10)
         self.publishers = [
             rospy.Publisher(n, WrenchStamped, queue_size=10) for n in topics
@@ -49,32 +76,28 @@ class FT_Mockup:
         except FileNotFoundError:
             return False
 
-    def create_random_replay_file(self):
-        rrange_F = 10.0
-        rrange_M = 1.0
+    def create_random_replay_file(self, df):
         sec = 100
-        freq = 1000
 
-        total_len = int(sec * freq)
-        header_len = int(len(self.header) / 2)
-        multiply_mask = np.hstack(
-            (
-                np.ones((total_len, header_len)) * rrange_F,
-                np.ones((total_len, header_len)) * rrange_M,
-            )
-        )
+        ma = np.array([df.loc["m"]])
+        ra = np.array([df.loc["r"]])
+
+        total_len = int(sec * self.freq)
+
+        data_np = ma.repeat(total_len, axis=0) + ra.repeat(
+            total_len, axis=0
+        ) * np.random.uniform(-1, 1, size=(total_len, 1))
 
         data = pd.DataFrame(
-            np.random.uniform(-1, 1, size=(total_len, header_len * 2)) * multiply_mask,
+            data_np,
             columns=self.header,
         )
         self.replay_set = data
-        self.iterator = itertools.cycle(self.replay_set.iterrows())
+        self.iterators.append(itertools.cycle(self.replay_set.iterrows()))
 
-    def create_new_wrench_msg(self):
+    def create_new_wrench_msg(self, it):
         w_msg = WrenchStamped()
-        data = next(self.iterator)[1]
-        # print(data)
+        data = next(it)[1]
 
         w_msg.header.stamp = rospy.Time.now()
 
@@ -90,19 +113,29 @@ class FT_Mockup:
     def publish_data(self):
         if not self.run_flag:
             return
-        for pubs in self.publishers:
-            pubs.publish(self.create_new_wrench_msg())
-        rospy.sleep(1 / 2000)
+        for pubs, it in zip(self.publishers, self.iterators):
+            pubs.publish(self.create_new_wrench_msg(it))
+        rospy.sleep(1 / self.freq)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Mock up data replay for FT Sensor")
     parser.add_argument("--replay_file", type=str, default=None, help="file to replay")
     parser.add_argument("--topics", nargs="*", default=["wrench_test1"])
+    parser.add_argument("--freq", type=int, default=1000)
+    parser.add_argument("--forces_mean", nargs="*", default=[10.0, 5.0, 1.0])
+    parser.add_argument("--forces_range", nargs="*", default=[1.0, 1.0, 0.5])
+
     args = parser.parse_args()
     print(args)
     replay_file = args.replay_file
 
-    FT_Mockup(replay_file=args.replay_file, topics=args.topics)
+    FT_Mockup(
+        replay_file=args.replay_file,
+        topics=args.topics,
+        freq=args.freq,
+        f_r=args.forces_range,
+        f_m=args.forces_mean,
+    )
 
     rospy.spin()
