@@ -12,6 +12,8 @@ from rich import print
 from sklearn.mixture import BayesianGaussianMixture
 from fastdtw import fastdtw
 from scipy.spatial.distance import euclidean
+import itertools
+from collections import defaultdict
 
 hv.extension("bokeh")
 pn.extension()
@@ -19,7 +21,19 @@ pn.extension()
 
 rospy.init_node(name="test", anonymous=True)
 
-list_of_wrench_topics = ["wrench"]
+
+class Counter:
+    def __init__(self, trueval):
+        self.counter = 0
+        self.trueval = trueval
+
+    def check(self, *args):
+        self.counter += 1
+        if self.counter == self.trueval:
+            self.counter = 0
+            return True
+        else:
+            return False
 
 
 def convert_force_to_dict(msg=None, name=""):
@@ -50,9 +64,45 @@ def convert_force_to_df():
     return reval
 
 
-source1 = Stream(asynchronous=True, ensure_io_loop=True)
-source2 = Stream(asynchronous=True, ensure_io_loop=True)
-source_df = Stream(asynchronous=True, ensure_io_loop=True)
+def bound_value(low, high, value):
+    return max(low, min(high, value))
+
+
+def add_option(op, multiselect):
+    ak = multiselect.options.copy()
+    ak.append(f"Recording {len(multiselect.options)}")
+    multiselect.options = ak
+
+
+def save_to_csv(ll):
+    for i, lr in enumerate(ll):
+        print(f"save Recording {i}")
+        lr.to_csv(f"Recording_{i}.csv")
+
+
+def extract_data(frame, name="t0", elements=["fx", "fy", "fz"]):
+    t0 = frame[frame["name"] == name].reset_index()
+    rec = t0[elements]
+    return rec.reset_index().to_numpy(), rec
+
+
+async_flag = False
+io_loop_flag = True
+
+source1_raw = Stream(asynchronous=async_flag, ensure_io_loop=io_loop_flag)
+source2_raw = Stream(asynchronous=async_flag, ensure_io_loop=io_loop_flag)
+source3_raw = Stream(asynchronous=async_flag, ensure_io_loop=io_loop_flag)
+
+source1 = source1_raw.map(convert_force_to_dict)
+source2 = source2_raw.map(convert_force_to_dict)
+source3 = source3_raw.map(convert_force_to_dict)
+
+source_df = Stream(asynchronous=async_flag, ensure_io_loop=io_loop_flag)
+
+c = source1.zip(source2, source3)
+
+ll3 = []
+tt = c.sink(ll3.append)
 
 
 multi_select = pn.widgets.MultiSelect(
@@ -62,80 +112,22 @@ multi_select = pn.widgets.MultiSelect(
     size=8,
 )
 
-# source_df = DataFrame(source3, example=convert_force_to_df())
-
-# source_df.sink(print)
-
-
-def save_to_csv(ll):
-    for i, lr in enumerate(ll):
-        print(f"save Recording {i}")
-        lr.to_csv(f"Recording_{i}.csv")
-
-
-def add_option(op, multiselect):
-    print(multiselect.options)
-    ak = multiselect.options.copy()
-    ak.append(f"Recording {len(multiselect.options)}")
-    multiselect.options = ak
-    print(multiselect.options)
-
-
-c = source1.zip(source2)
-ll3 = []
 
 rr = source_df.sink(partial(add_option, multiselect=multi_select))
 
 recordings = source_df.sink_to_list()
 
-tt = c.sink(ll3.append)
-
-
 c.disconnect(tt)
 record_flag = False
 
-count = 0
-t = rospy.Time.now()
 
-
-def callback(msg, source, name):
+def callback(msg, cb_args):
+    source, name = cb_args
     cf = partial(convert_force_to_dict, name=name)
-    source.emit(cf(msg), asynchronous=False)
+    source.emit(cf(msg), asynchronous=async_flag)
 
-
-def test_callback(msg):
-    global count, t
-    count += 1
-    if count % 3000 == 0:
-        print(3000 / (rospy.Time.now() - t).to_sec())
-        # print(ll3[-1:])
-        # print(len(ll3))
-        t = rospy.Time.now()
-
-
-class Counter:
-    def __init__(self, trueval):
-        self.counter = 0
-        self.trueval = trueval
-
-    def check(self, *args):
-        self.counter += 1
-        if self.counter == self.trueval:
-            self.counter = 0
-            return True
-        else:
-            return False
-
-
-# c.sink(test_callback)
 
 str_pane = pn.pane.Str("Skills.", styles={"font-size": "12pt"})
-
-
-def extract_data(frame):
-    t0 = frame[frame["name"] == "t0"].reset_index()
-    rec = t0[["fx", "fy", "fz"]]
-    return rec.reset_index().to_numpy(), rec
 
 
 def calculate_dpgmm(frame_list):
@@ -178,14 +170,14 @@ def print_stats(means, covariances, axes=[0, 3]):
 
 def extract_contact_establishers(means, covariances, axes=[3]):
     ara = means[means[:, 0].argsort()]
-    covs = covariances[means[:, 0].argsort()]
+    # covs = covariances[means[:, 0].argsort()]
     print(ara)
-    extracted_variances = np.diagonal(covs, axis1=1, axis2=2)[:, axes]
+    # extracted_variances = np.diagonal(covs, axis1=1, axis2=2)[:, axes]
     extracted_means = ara[:, axes].flatten()
     print("extracted means")
     print(extracted_means)
     means_thresh = 2.0
-    variances_thresh = 1.0
+    # variances_thresh = 1.0
     print(np.abs(extracted_means) > means_thresh)
     print(ara[np.abs(extracted_means) > means_thresh])
     return (
@@ -249,8 +241,6 @@ def get_plot(data):
 save_pd = None
 
 
-import itertools
-
 df_panel = pn.pane.DataFrame(convert_force_to_df(), width=400)
 
 
@@ -265,11 +255,9 @@ def on_click(event):
     else:
         c.disconnect(tt)
         print("convert")
-        save_pd = None
         save_pd = pd.DataFrame(itertools.chain.from_iterable(ll3))
         df_panel.object = save_pd
-        # print(save_pd)
-        source_df.emit(save_pd, asynchronous=True)
+        source_df.emit(save_pd, asynchronous=async_flag)
         print("finish on click")
         ll3.clear()
         record_flag = False
@@ -294,7 +282,20 @@ class ResetCaller:
 reset_topics = [
     "/sensor_01/ati_force_sensor/set_sw_bias",
     "/sensor_02/ati_force_sensor/set_sw_bias",
+    "/sensor_03/ati_force_sensor/set_sw_bias",
 ]
+
+
+def create_dial(name, width=200):
+    saving = defaultdict(lambda: "yellow", {"fx": "red", "fy": "green", "fz": "blue"})
+    return pn.indicators.Dial(
+        name=name,
+        value=10,
+        bounds=(-20, 20),
+        format="{value:.2f} N",
+        width=width,
+        default_color=saving[name],
+    )
 
 
 dial_x_1 = pn.indicators.Dial(
@@ -347,6 +348,30 @@ dial_z_2 = pn.indicators.Dial(
     default_color="blue",
 )
 
+dial_x_3 = pn.indicators.Dial(
+    name="fx",
+    value=10,
+    bounds=(-20, 20),
+    format="{value:.2f} N",
+    width=200,
+    default_color="red",
+)
+dial_y_3 = pn.indicators.Dial(
+    name="fy",
+    value=10,
+    bounds=(-20, 20),
+    format="{value:.2f} N",
+    width=200,
+    default_color="green",
+)
+dial_z_3 = pn.indicators.Dial(
+    name="fz",
+    value=10,
+    bounds=(-20, 20),
+    format="{value:.2f} N",
+    width=200,
+    default_color="blue",
+)
 
 streamz_pane = pn.panel(df_panel)
 
@@ -356,26 +381,24 @@ plot_stream = source_df.map(get_plot)
 plot_panel = pn.pane.Streamz(plot_stream)
 
 
-def bound_value(low, high, value):
-    return max(low, min(high, value))
-
-
 def indicator_callback(df, dials, element_names):
     for i, (dial, element_name) in enumerate(zip(dials, element_names)):
         for element in zip(dial, element_name):
             element[0].value = bound_value(-20.0, 20.0, df[i][element[1]])
 
 
-dials_1 = ([dial_x_1, dial_y_1, dial_z_1], ["fx", "fy", "fz"])
+# dials_1 = ([dial_x_1, dial_y_1, dial_z_1], ["fx", "fy", "fz"])
+dials_1 = tuple(zip(*[(create_dial(b), b) for b in ["fx", "fy", "fz"]]))
 dials_2 = ([dial_x_2, dial_y_2, dial_z_2], ["fx", "fy", "fz"])
+dials_3 = ([dial_x_3, dial_y_3, dial_z_3], ["fx", "fy", "fz"])
 
 
 kr = c.filter(Counter(150).check)
 kr.sink(
     partial(
         indicator_callback,
-        dials=[dials_1[0], dials_2[0]],
-        element_names=[dials_1[1], dials_2[1]],
+        dials=[dials_1[0], dials_2[0], dials_3[0]],
+        element_names=[dials_1[1], dials_2[1], dials_3[1]],
     )
 )
 
@@ -404,9 +427,7 @@ indicator = pn.indicators.LinearGauge(
 
 
 def set_dial_value(value, indicator):
-    # print(f"set_value: {value}")
     indicator.value = float(value)
-    # print(f"inicator value: {indicator.value}")
 
 
 def analyze_print(element):
@@ -507,6 +528,39 @@ load_button = pn.widgets.Button(name="Load data from files", button_type="primar
 load_button.on_click(load_list)
 
 
+def calc_directions(df):
+    vecs = []
+    for el in df:
+        em = np.array((el["fx"], el["fy"]))
+        norm = np.linalg.norm(em) if np.linalg.norm(em) > 0.01 else 1.0
+        vecs.append(em / norm)
+    print(vecs)
+    return vecs
+
+
+def get_direction_plots(vecs):
+    x = np.array([0, 0.5, 1.0])
+    y = np.array([0, -1, 0])
+    u = np.array([v[0] for v in vecs])
+    v = np.array([v[1] for v in vecs])
+    print(f"dirplot {u},{v}")
+    mags = np.array([1, 1, 1])
+    angs = np.pi / 2 - np.arctan2(u, v)
+    print(f"angs, mags {angs},{mags}")
+
+    return hv.VectorField((x, y, angs, mags)).opts(xlim=(-2.0, 2.0), ylim=(-2.0, 2.0))
+
+
+directions = (
+    c.filter(Counter(150).check)
+    .filter(partial(force_threshold, dim="fx", thresh=1.0))
+    .filter(partial(force_threshold, dim="fy", thresh=1.0))
+    .map(calc_directions)
+    .map(get_direction_plots)
+)
+
+plot_panel2 = pn.pane.Streamz(directions)
+
 layout = pn.Row(
     pn.Column(
         pn.Row(button, reset_button),
@@ -516,11 +570,17 @@ layout = pn.Row(
     ),
     pn.Column(
         indicator,
-        pn.Row(dial_x_1, dial_y_1, dial_z_1),
-        pn.Row(dial_x_2, dial_y_2, dial_z_2),
+        pn.Row(*dials_1[0]),
+        pn.Row(
+            dial_x_2,
+            dial_y_2,
+            dial_z_2,
+        ),
+        pn.Row(dial_x_3, dial_y_3, dial_z_3),
         plot_panel,
         analyze_panel,
         align_panel,
+        plot_panel2,
     ),
     str_pane,
 )
@@ -531,19 +591,24 @@ layout = pn.Row(
 wrenches = [
     "/sensor_01/ati_force_sensor/ati_force_torque",
     "/sensor_02/ati_force_sensor/ati_force_torque",
+    "/sensor_03/ati_force_sensor/ati_force_torque",
 ]
 
-sources = [source1, source2]
+sources = [source1_raw, source2_raw, source3_raw]
 
-
+print(
+    [(its, topic_name, s) for its, (topic_name, s) in enumerate(zip(wrenches, sources))]
+)
+funcs = [partial(callback, source=s, name=f"t{its}") for its, s in enumerate(sources)]
 subscribers = [
     rospy.Subscriber(
         topic_name,
         WrenchStamped,
-        partial(callback, source=s, name=f"t{its}"),
-        queue_size=10,
+        callback=partial(s.emit, asynchronous=async_flag),
+        queue_size=100,
+        # callback_args=(s, f"t{i}"),
     )
-    for its, (topic_name, s) in enumerate(zip(wrenches, sources))
+    for i, (topic_name, s) in enumerate(zip(wrenches, sources))
 ]
 
 rscall.call_reset(None)
