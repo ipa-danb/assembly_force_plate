@@ -1,6 +1,7 @@
 import rust_subscriber
 import numpy as np
 import time
+from functools import partial
 
 
 def print_b(b):
@@ -18,22 +19,27 @@ a = np.zeros((500, 3))
 
 # t1.test()
 
+
+def print_test(al):
+    for i, a in enumerate(al):
+        print(f"test_python, a_{i}: {a.shape}")
+
+
 # rospy.init_node("test")
 rust_subscriber.start_node()
 
-for i in range(0, 1000):
-    ts = time.perf_counter()
-    b_tot = rust_subscriber.start_subscriber(
-        buf_size=9000,
-        dur=1,
-        topic_names=["/wrench_test", "/wrench_test2", "/wrench_test3"],
-    )
-    print(len(b_tot))
-    for i, el in enumerate(b_tot):
-        print(f"---   {i}   ---")
-        print_b(el)
-
-    # ts = time.perf_counter()
+ts = time.perf_counter()
+b_tot = rust_subscriber.start_subscriber(
+    buf_size=10000,
+    dur=2,
+    topic_names=[
+        "/wrench_test",
+        "/wrench_test2",
+        "/wrench_test3",
+    ],  # , "/wrench_test2", "/wrench_test3"],
+    pyfun=print_test,
+)
+# ts = time.perf_counter()
 
 
 # def python_callback(arg):
