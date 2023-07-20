@@ -5,7 +5,6 @@ mod rosrust_msg {
 use numpy::ndarray::{s, Array2};
 use numpy::PyArray2;
 use pyo3::prelude::*;
-use pyo3::wrap_pyfunction;
 use pyo3::{pyclass, pymodule, types::PyFunction, types::PyModule, PyResult, Python};
 use std::sync::Arc;
 use std::sync::Mutex;
@@ -19,7 +18,6 @@ pub struct DataField {
     pub vec: Array2<f64>,
     pub tres: i32,
     pub count: i32,
-    cb_fun: Arc<Mutex<Py<PyFunction>>>,
 }
 
 impl DataField {
@@ -57,7 +55,7 @@ fn rust_subscriber(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
     fn start_subscriber<'py>(
         py: Python<'py>,
         buf_size: i32,
-        dur: i32,
+        dur: f64,
         topic_names: Vec<String>,
         pyfun: Py<PyFunction>,
     ) -> Vec<Py<PyArray2<f64>>> {
@@ -74,7 +72,6 @@ fn rust_subscriber(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
                 tres: buf_size,
                 count: 0,
                 vec: Array2::<f64>::zeros((buf_size as usize, 7)),
-                cb_fun: cb_mutex.clone(),
             })))
         }
 
@@ -94,14 +91,10 @@ fn rust_subscriber(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
                 .unwrap(),
             );
         }
+        let dur_nsecs = (dur * 1_000_000_000 as f64) as i64;
+        let d = rosrust::Duration::from_nanos(dur_nsecs);
 
-        let d = rosrust::Duration { sec: dur, nsec: 0 };
-
-        use std::time::Instant;
-
-        loop {
-            let before = Instant::now();
-            println!("{:?}", before);
+        Python::with_gil(|py| loop {
             let mut ret_array = Vec::new();
             for d in df_list.iter() {
                 let vecr = d.clone();
@@ -111,13 +104,9 @@ fn rust_subscriber(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
                 ret_array.push(PyArray2::from_array(py, &subarray).to_owned());
                 vecrr.count = 0;
             }
-            Python::with_gil(|py| {
-                callback.lock().unwrap().call1(py, (ret_array,));
-            });
-            rosrust::sleep(d);
-            let after = Instant::now();
-            println!("{:?}", after - before);
-        }
+            callback.lock().unwrap().call1(py, (ret_array,));
+            py.allow_threads(|| rosrust::sleep(d));
+        });
 
         let mut ret_array = Vec::new();
         for d in df_list.iter() {
