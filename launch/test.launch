@@ -20,4 +20,10 @@
         <node pkg="ati_force_sensor" name="ati_force_sensor_3" type="ati_force_sensor" output="screen" />
 	</group>
 
+        <group ns="/sensor_04">
+        <remap from="/ati_force_sensor/ati_force_torque" to="wrench" />
+        <rosparam command="load" file="$(find teach_tool)/launch/force_sensor_04.param.yaml" />
+        <node pkg="ati_force_sensor" name="ati_force_sensor_4" type="ati_force_sensor" output="screen" />
+        </group>
+
 </launch>
