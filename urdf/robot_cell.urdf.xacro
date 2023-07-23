@@ -1,0 +1,65 @@
+<?xml version="1.0"?>
+
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="robot_cell">
+
+    <xacro:macro name="box_count" params="count_x count_y rot_c shift_z:=0 shift_y:=0 shift_x:=0">
+        <origin xyz="${count_x * 0.05 + shift_x} ${count_y * 0.05 + shift_y} ${shift_z}" rpy="0 0 ${rot_c *pi/2}"/>
+    </xacro:macro>
+
+    <link name="world"/>
+
+    <!-- Cell -->
+    <joint name="robot_cell_joint" type="fixed">
+        <origin xyz="0.0 0.0 0.955" rpy="0 0 0"/>
+        <parent link="world"/>
+        <child link="robot_cell"/>
+    </joint>
+    <link name="robot_cell">
+        <visual>
+            <origin xyz="0.70 0.70 -0.4775" rpy="0 0 0"/>
+            <geometry>
+                <box size="1.40 1.40 0.955"/>
+            </geometry>
+            <material name="grey">
+                <color rgba="0.75 0.75 0.75 1.0"/>
+            </material>
+        </visual>
+    </link>
+
+    <!-- Table -->
+    <joint name="table_joint" type="fixed">
+        <origin xyz="0.1 0.1 0.05" rpy="0 0 0"/>
+        <parent link="robot_cell"/>
+        <child link="table"/>
+    </joint>
+    <link name="table">
+        <visual>
+            <origin xyz="0.60 0.60 -0.025" rpy="0 0 0"/>
+            <geometry>
+                <box size="1.20 1.20 0.05"/>
+            </geometry>
+            <material name="darkgrey">
+                <color rgba="0.25 0.25 0.25 1.0"/>
+            </material>
+        </visual>
+    </link>
+
+    <joint name="box_joint" type="fixed">
+        <xacro:box_count count_x="6" count_y="10" rot_c="0"/>
+        <parent link="table"/>
+        <child link="box"/>
+    </joint>
+    <link name="box">
+        <visual>
+            <origin xyz="0.25 0.25 0.0" rpy="0 0 0"/>
+            <geometry>
+                <box size="0.5 0.5 0.05"/>
+            </geometry>
+            <material name="darkgrey">
+                <color rgba="0.9 0.25 0.5 0.8"/>
+            </material>
+        </visual>
+    </link>
+
+
+</robot>

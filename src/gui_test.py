@@ -587,11 +587,11 @@ def write_out_ymls(means_sorted, selection):
     bs = partial(build_single_frame_dict, ol=def_ori, parent=def_parent)
 
     range_ar = np.arange(len(selection[0]))
-    dl = []
+    dl = {}
     for sno in range_ar[selection[0]]:
         name = f"skill_{sno}"
         pl = [float(means_sorted[sno, 1]), float(means_sorted[sno, 2]), def_z]
-        dl.append(bs(name=name, pl=pl))
+        dl.update(bs(name=name, pl=pl))
 
     dd = {"frames": dl}
     with open("frames.yaml", "w") as f:

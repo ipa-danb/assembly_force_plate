@@ -1,0 +1,44 @@
+<?xml version="1.0"?>
+
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro"
+    name="ur5_cell" >
+
+    <!-- Includes -->
+    <xacro:include filename="$(find ur_description)/urdf/inc/ur5e_macro.xacro"/>
+
+    <xacro:macro name="box_count" params="count_x count_y rot_c shift_z:=0">
+        <origin xyz="${count_x * 0.05} ${count_y * 0.05} ${shift_z} " rpy="0 0 ${rot_c *pi/2}"/>
+    </xacro:macro>
+
+    <link name="table"/>
+
+    <xacro:property name="prefix" value="ur5_" />
+
+
+    <joint name="${prefix}to_base_plate" type="fixed">
+        <xacro:box_count count_x="15" count_y="3" rot_c="0" shift_z="0.022" />
+        <parent link="table"/>
+        <child link="${prefix}base_plate"/>
+    </joint>
+    <link name="${prefix}base_plate">
+        <visual>
+            <origin xyz="0.125 0.125 -0.011" rpy="0 0 0"/>
+            <geometry>
+                <box size="0.250 0.250 0.022"/>
+            </geometry>
+            <material name="metallic">
+                <color rgba="0.5 0.5 0.5 1"/>
+            </material>
+        </visual>
+    </link>
+
+    <joint name="${prefix}to_base" type="fixed">
+        <origin xyz="0.125 0.125 0" rpy="0 0 0"/>
+        <parent link="${prefix}base_plate"/>
+        <child link="${prefix}base_link"/>
+    </joint>
+
+    <xacro:ur5e_robot prefix="${prefix}"/>
+
+
+</robot>

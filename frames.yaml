@@ -1,5 +1,5 @@
 frames:
-- skill_1:
+  skill_1:
     orientation:
       w: 1
       x: 0
@@ -7,11 +7,11 @@ frames:
       z: 0
     parent: table_zero
     position:
-      x: 0.08107500148125438
-      y: 0.03917706125777429
+      x: 0.2316670284349675
+      y: 0.04790866025778247
       z: 0
     style: none
-- skill_2:
+  skill_2:
     orientation:
       w: 1
       x: 0
@@ -19,11 +19,11 @@ frames:
       z: 0
     parent: table_zero
     position:
-      x: 0.05107488053911645
-      y: 0.13672774931631065
+      x: 0.222076475258733
+      y: 0.2029786589350494
       z: 0
     style: none
-- skill_3:
+  skill_3:
     orientation:
       w: 1
       x: 0
@@ -31,19 +31,7 @@ frames:
       z: 0
     parent: table_zero
     position:
-      x: 0.04769322914220682
-      y: 0.24381521586594987
-      z: 0
-    style: none
-- skill_4:
-    orientation:
-      w: 1
-      x: 0
-      y: 0
-      z: 0
-    parent: table_zero
-    position:
-      x: 0.0355386230513373
-      y: 0.392223708479894
+      x: 0.3160259114016616
+      y: 0.41424036069600956
       z: 0
     style: none
