@@ -1,0 +1,39 @@
+<?xml version="1.0"?>
+
+<launch>
+    <arg name="gui" default="True" />
+    <arg name="frame_editor" default="True" />
+
+
+    <node name="target3_publisher" pkg="tf" type="static_transform_publisher" args="0.3 0.1 0.0 1 0 0 0 base_link table_zero 2"/>
+
+    <!-- robot description -->
+    <param name="robot_description" command="$(find xacro)/xacro '$(find pitasc_common)/urdf/ur_description/urdf/ur5.xacro'" />
+
+    <!-- robot state publisher -->
+    <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" />
+
+    <!-- rviz -->
+    <node pkg="rviz" type="rviz" name="rviz" args="-d $(find pitasc_common)/launch/pitasc_3d.rviz" if="$(arg gui)"/>
+
+    <!-- simulator -->
+    <node name="simulator" pkg="microsim" type="micro_simulator.py" output="screen">
+        <param name="tool_frame" value="tool0"/>
+        <param name="limit_joints" value="False"/>
+        <rosparam param="initial_state">
+            shoulder_pan_joint: 0.0
+            shoulder_lift_joint: -1.57
+            elbow_joint: 1.57
+            wrist_1_joint: -1.57
+            wrist_2_joint: -1.57
+            wrist_3_joint: -1.57
+        </rosparam>
+    </node>
+
+    <!-- republish the joint velocities from a C++ node (https://gitlab.cc-asp.fraunhofer.de/pitasc/pitasc/-/issues/367) -->
+    <node name="joint_vel_republisher" pkg="microsim" type="joint_vel_republisher_node" output="screen" />
+
+    <!-- frame_editor headless -->
+    <node if="$(arg frame_editor)" pkg="frame_editor" type="editor.py" name="frame_editor" ns="editor1" args="--load '$(find teach_tool)/frames.yaml'" output="screen"/>
+
+</launch>
