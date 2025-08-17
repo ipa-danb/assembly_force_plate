@@ -25,8 +25,10 @@ from scipy.spatial.distance import euclidean
 hv.extension("bokeh")
 pn.extension()
 
+debug = False
 
-rospy.init_node(name="test", anonymous=True)
+
+rospy.init_node(name="recording_gui", anonymous=True)
 
 
 class Counter:
@@ -190,10 +192,8 @@ def calculate_dpgmm(frame_list, regress_columns=[0, 1, 2, 5, 6, 7]):
             _, y_n = align_two_arrays(x_n, el[:, regress_columns], add_index=False)
             dat_aligned.append(y_n)
 
-    print(dat_aligned[0].shape)
     for i, dats in enumerate(dat_aligned):
         dat_aligned[i] = add_index(dats)
-    print(dat_aligned[0].shape)
     dats = np.vstack(dat_aligned)
     alder = BayesianGaussianMixture(
         n_components=10,
@@ -220,9 +220,6 @@ def extract_contact_establishers(means, covariances, axes=[3]):
     print("extracted means")
     print(extracted_means)
     means_thresh = 2.0
-    # variances_thresh = 1.0
-    print(np.abs(extracted_means) > means_thresh)
-    print(ara[np.abs(extracted_means) > means_thresh])
     return (
         ara[np.abs(extracted_means) > means_thresh],
         [np.abs(extracted_means) > means_thresh],
@@ -233,24 +230,6 @@ def extract_contact_establishers(means, covariances, axes=[3]):
 def create_suggestions(ara, selection):
     contact_establish_skill = np.diff(selection, prepend=False)
     print_list = []
-    print(contact_establish_skill, selection)
-    for i, (m, contact_flag, force_skill) in enumerate(
-        zip(ara, contact_establish_skill[0], selection[0])
-    ):
-        t0 = f"Skill {i}\n"
-        if force_skill:
-            if contact_flag:
-                t1 = f"\t Skill_approach\n"
-            else:
-                t1 = f"\t Skill_apply_force\n"
-            t2 = f"\t Forces: \t Fx:\t{m[1]:.1f}, Fy:\t{m[2]:.1f}, Fz:\t{m[3]:.1f}\n"
-        else:
-            t1 = "\t Preposition Skill\n"
-            t2 = "\n"
-
-        print(t0, t1, t2)
-        tg = "\n".join([t0, t1, t2])
-        print_list.append(tg)
     return print_list
 
 
@@ -722,21 +701,22 @@ load_button.on_click(load_list)
 analyze_button = pn.widgets.Button(
     name="Plot and analyze selected data", button_type="primary"
 )
-analyze_button.on_click(print_event)
 analyze_button.on_click(partial(analyzer, hv_panel=align_panel))
 analyze_button.on_click(partial(on_analyze, hv_panel=analyze_panel))
 
 button = pn.widgets.Button(name="start stream", button_type="primary")
 button.on_click(on_click)
-button.on_click(print_event)
 
 reset_button = pn.widgets.Button(name="reset FT", button_type="primary")
 
 reset_button.on_click(rscall.call_reset)
-reset_button.on_click(print_event)
+
+if debug:
+    button.on_click(print_event)
+    analyze_button.on_click(print_event)
+    reset_button.on_click(print_event)
 
 
-# ------------
 
 
 # ------------
